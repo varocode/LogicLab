@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import SymbolKeyboard from '../components/SymbolKeyboard'
@@ -15,7 +16,8 @@ const EXAMPLES = [
 
 export default function Editor({ darkMode }) {
   const { user } = useAuth()
-  const [input, setInput] = useState('(A -> B) AND (B -> C) -> (A -> C)')
+  const [searchParams] = useSearchParams()
+  const [input, setInput] = useState(() => searchParams.get('expr') || '(A -> B) AND (B -> C) -> (A -> C)')
   const [table, setTable] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
