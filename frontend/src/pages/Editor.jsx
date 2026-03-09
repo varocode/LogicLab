@@ -104,16 +104,19 @@ export default function Editor({ darkMode }) {
             <div className={card}>
               <div className="flex items-center justify-between mb-4">
                 <p className={label}>Tabla de verdad — {table.variables.length} variable{table.variables.length !== 1 ? 's' : ''}, {table.rows.length} filas, {table.subExpressions.length} sub-expresión{table.subExpressions.length !== 1 ? 'es' : ''}</p>
-                {user && (
-                  <div className="flex gap-2">
-                    <button onClick={saveExpression} className={`text-xs px-3 py-1 rounded-lg border transition ${saved ? 'border-green-400 text-green-600' : (darkMode ? 'border-gray-600 text-gray-400 hover:border-violet-500' : 'border-gray-200 text-gray-500 hover:border-violet-400')}`}>
-                      {saved ? '✓ Guardado' : '💾 Guardar'}
-                    </button>
-                    <button onClick={copyShareLink} className={`text-xs px-3 py-1 rounded-lg border transition ${darkMode ? 'border-gray-600 text-gray-400 hover:border-violet-500' : 'border-gray-200 text-gray-500 hover:border-violet-400'}`}>
-                      🔗 Compartir
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2 flex-wrap">
+                  {user && (
+                    <>
+                      <button onClick={saveExpression} className={`text-xs px-3 py-1 rounded-lg border transition ${saved ? 'border-green-400 text-green-600' : (darkMode ? 'border-gray-600 text-gray-400 hover:border-violet-500' : 'border-gray-200 text-gray-500 hover:border-violet-400')}`}>
+                        {saved ? '✓ Guardado' : '💾 Guardar'}
+                      </button>
+                      <button onClick={copyShareLink} className={`text-xs px-3 py-1 rounded-lg border transition ${darkMode ? 'border-gray-600 text-gray-400 hover:border-violet-500' : 'border-gray-200 text-gray-500 hover:border-violet-400'}`}>
+                        🔗 Compartir
+                      </button>
+                    </>
+                  )}
+                  <ExportButtons table={table} input={input} darkMode={darkMode} />
+                </div>
               </div>
               <TruthTable table={table} darkMode={darkMode} />
             </div>
@@ -141,6 +144,52 @@ export default function Editor({ darkMode }) {
         </div>
       )}
     </div>
+  )
+}
+
+function ExportButtons({ table, input, darkMode }) {
+  if (!table) return null
+
+  const exportCSV = () => {
+    const headers = [...table.variables, ...table.subExpressions]
+    const rows = table.rows.map(row => headers.map(h => row[h] ? '1' : '0').join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    download(csv, 'tabla_verdad.csv', 'text/csv')
+  }
+
+  const exportMarkdown = () => {
+    const headers = [...table.variables, ...table.subExpressions]
+    const sep = headers.map(() => '---').join(' | ')
+    const rows = table.rows.map(row => headers.map(h => row[h] ? '1' : '0').join(' | '))
+    const md = `# Tabla de verdad\n\`${input}\`\n\n| ${headers.join(' | ')} |\n| ${sep} |\n${rows.map(r => `| ${r} |`).join('\n')}`
+    download(md, 'tabla_verdad.md', 'text/markdown')
+  }
+
+  const exportLatex = () => {
+    const headers = [...table.variables, ...table.subExpressions]
+    const cols = 'c'.repeat(headers.length)
+    const head = headers.map(h => `$${h.replace(/→/g,'\\to').replace(/↔/g,'\\leftrightarrow').replace(/∧/g,'\\land').replace(/∨/g,'\\lor').replace(/¬/g,'\\neg').replace(/⊕/g,'\\oplus')}$`).join(' & ')
+    const rows = table.rows.map(row => headers.map(h => row[h] ? '1' : '0').join(' & ') + ' \\\\')
+    const latex = `\\begin{tabular}{${cols}}\n\\hline\n${head} \\\\\n\\hline\n${rows.join('\n')}\n\\hline\n\\end{tabular}`
+    download(latex, 'tabla_verdad.tex', 'text/plain')
+  }
+
+  const download = (content, filename, mime) => {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const btn = `text-xs px-3 py-1 rounded-lg border transition ${darkMode ? 'border-gray-600 text-gray-400 hover:border-violet-500 hover:text-gray-200' : 'border-gray-200 text-gray-500 hover:border-violet-400 hover:text-gray-700'}`
+
+  return (
+    <>
+      <button onClick={exportCSV} className={btn}>📊 CSV</button>
+      <button onClick={exportMarkdown} className={btn}>📝 MD</button>
+      <button onClick={exportLatex} className={btn}>𝛌 LaTeX</button>
+    </>
   )
 }
 

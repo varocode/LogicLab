@@ -13,6 +13,12 @@ export default function Exercises({ darkMode }) {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [daily, setDaily] = useState(null)
+  const [dailyLoading, setDailyLoading] = useState(true)
+
+  useEffect(() => {
+    api.get('/daily').then(r => setDaily(r.data)).catch(() => setDaily(null)).finally(() => setDailyLoading(false))
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -37,6 +43,32 @@ export default function Exercises({ darkMode }) {
           </button>
         )}
       </div>
+
+      {/* Daily Challenge Banner */}
+      {!dailyLoading && daily && (
+        <div
+          className={`mb-5 px-5 py-4 rounded-2xl border-2 cursor-pointer transition ${darkMode ? 'bg-gradient-to-r from-violet-900/40 to-blue-900/40 border-violet-600 hover:border-violet-400' : 'bg-gradient-to-r from-violet-50 to-blue-50 border-violet-300 hover:border-violet-500 hover:shadow-md'}`}
+          onClick={() => navigate(`/exercises/${daily.exercise.id}`)}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">⭐</div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-black uppercase tracking-wide ${darkMode ? 'text-violet-300' : 'text-violet-600'}`}>Reto del día — {daily.date}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${DIFF_COLORS[daily.exercise.difficulty]}`}>{DIFF_LABELS[daily.exercise.difficulty]}</span>
+                </div>
+                <h3 className={`font-black text-base mt-0.5 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{daily.exercise.title}</h3>
+                {daily.exercise.description && (
+                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{daily.exercise.description}</p>
+                )}
+              </div>
+            </div>
+            <div className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition ${darkMode ? 'bg-violet-600 text-white hover:bg-violet-700' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
+              Jugar →
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-5 flex-wrap">

@@ -5,7 +5,7 @@ using LogicLab.DTOs;
 using LogicLab.Models;
 
 namespace LogicLab.Services;
-public class ExerciseService(AppDbContext db, LogicEngine engine)
+public class ExerciseService(AppDbContext db, LogicEngine engine, BadgeService badges)
 {
     public async Task<ExerciseDto?> CreateAsync(int userId, CreateExerciseDto dto)
     {
@@ -26,6 +26,7 @@ public class ExerciseService(AppDbContext db, LogicEngine engine)
         };
         db.Exercises.Add(exercise);
         await db.SaveChangesAsync();
+        await badges.CheckAndAwardAsync(userId, "exercise_create");
         return await ToDto(exercise, userId);
     }
 
@@ -105,7 +106,27 @@ public class ExerciseService(AppDbContext db, LogicEngine engine)
         }
 
         await db.SaveChangesAsync();
-        return new(score, total, correct, attempt.Id);
+
+        // Award badges
+        var newBadges = await badges.CheckAndAwardAsync(userId, "exercise_complete", score);
+        await badges.CheckAndAwardAsync(userId, "streak");
+        await badges.CheckAndAwardAsync(userId, "xp");
+
+        return new(score, total, correct, attempt.Id, newBadges.Select(b => new BadgeDto(b.Key, b.Name, b.Icon, b.Description)).ToList());
+    }
+
+    public async Task<HintResultDto?> GetHintAsync(int exerciseId, string column, int userId)
+    {
+        var exercise = await db.Exercises.FindAsync(exerciseId);
+        if (exercise is null) return null;
+        var table = engine.GenerateTruthTable(exercise.Expression);
+        var values = table.Rows.Select(r => r.ContainsKey(column) ? r[column] : false).ToList();
+
+        // Cost 5 XP for a hint
+        var user = await db.Users.FindAsync(userId);
+        if (user != null && user.XP >= 5) { user.XP -= 5; await db.SaveChangesAsync(); }
+
+        return new(column, values);
     }
 
     public async Task<bool> DeleteAsync(int id, int userId)

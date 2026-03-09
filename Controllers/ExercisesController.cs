@@ -42,6 +42,13 @@ public class ExercisesController(ExerciseService svc) : ControllerBase
         return r is null ? NotFound() : Ok(r);
     }
 
+    [HttpGet("{id:int}/hint/{column}"), Authorize]
+    public async Task<IActionResult> GetHint(int id, string column)
+    {
+        var r = await svc.GetHintAsync(id, column, UserId);
+        return r is null ? NotFound() : Ok(r);
+    }
+
     [HttpDelete("{id:int}"), Authorize]
     public async Task<IActionResult> Delete(int id)
         => await svc.DeleteAsync(id, UserId) ? NoContent() : NotFound();

@@ -32,7 +32,14 @@ public record ExerciseDto(
 
 public record SubmitAnswerDto(int Row, string Column, bool Value);
 public record SubmitAttemptDto(List<SubmitAnswerDto> Answers, int TimeSpentSeconds);
-public record AttemptResultDto(int Score, int Total, int Correct, int AttemptId);
+public record AttemptResultDto(int Score, int Total, int Correct, int AttemptId, List<BadgeDto> NewBadges);
+public record HintResultDto(string Column, List<bool> Values);
+
+// Badges
+public record BadgeDto(string Key, string Name, string Icon, string Description);
+
+// Leaderboard
+public record LeaderboardEntryDto(int Rank, int UserId, string Username, int XP, int Streak, int ExercisesCompleted, List<BadgeDto> TopBadges);
 
 // Profile
 public record UserProfileDto(int Id, string Username, string Email, string Role, int XP, int Streak, DateTime CreatedAt);

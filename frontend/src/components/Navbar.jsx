@@ -5,7 +5,9 @@ const NAV = [
   { to: '/editor', label: 'Editor', icon: '⊕' },
   { to: '/analysis', label: 'Análisis', icon: '🔍' },
   { to: '/kmap', label: 'K-Map', icon: '🗺️' },
+  { to: '/tree', label: 'Árbol', icon: '🌳' },
   { to: '/exercises', label: 'Ejercicios', icon: '✏️' },
+  { to: '/leaderboard', label: 'Ranking', icon: '🏆' },
   { to: '/reference', label: 'Referencia', icon: '📚' },
 ]
 
@@ -19,10 +21,10 @@ export default function Navbar({ darkMode, setDarkMode }) {
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         <Link to="/" className="text-lg font-black text-violet-600 shrink-0">LogicLab</Link>
 
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex items-center gap-0.5 overflow-x-auto">
           {NAV.map(n => (
             <Link key={n.to} to={n.to}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
                 pathname.startsWith(n.to)
                   ? 'bg-violet-100 text-violet-700'
                   : darkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'

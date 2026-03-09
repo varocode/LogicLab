@@ -2,45 +2,73 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
-import TruthTable from '../components/TruthTable'
 
 const DIFF_COLORS = { easy: 'bg-green-100 text-green-700', medium: 'bg-yellow-100 text-yellow-700', hard: 'bg-red-100 text-red-700' }
 const DIFF_LABELS = { easy: 'Fácil', medium: 'Medio', hard: 'Difícil' }
 
+function formatTime(secs) {
+  const m = Math.floor(secs / 60).toString().padStart(2, '0')
+  const s = (secs % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
 export default function PlayExercise({ darkMode }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [exercise, setExercise] = useState(null)
   const [table, setTable] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [answers, setAnswers] = useState({}) // { "row:col": bool }
+  const [answers, setAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [result, setResult] = useState(null)
   const [startTime] = useState(Date.now())
+  const [elapsed, setElapsed] = useState(0)
   const [hiddenConfig, setHiddenConfig] = useState(null)
-  const [correctAnswers, setCorrectAnswers] = useState({}) // after submit
+  const [correctAnswers, setCorrectAnswers] = useState({})
+  const [hints, setHints] = useState({}) // { col: [bool, ...] }
+  const [hintLoading, setHintLoading] = useState(false)
+  const timerRef = useRef(null)
 
   useEffect(() => {
-    Promise.all([
-      api.get(`/exercises/${id}`),
-      api.post('/logic/evaluate', { expression: '' }).catch(() => null)
-    ]).then(async ([exRes]) => {
-      const ex = exRes.data
-      setExercise(ex)
-      const tableRes = await api.post('/logic/evaluate', { expression: ex.expression })
-      setTable(tableRes.data)
-      try {
-        const config = JSON.parse(ex.hiddenConfig)
-        setHiddenConfig(config)
-      } catch { setHiddenConfig({ hiddenColumns: [], hiddenCells: [] }) }
-    }).catch(() => navigate('/exercises'))
+    api.get(`/exercises/${id}`)
+      .then(async exRes => {
+        const ex = exRes.data
+        setExercise(ex)
+        const tableRes = await api.post('/logic/evaluate', { expression: ex.expression })
+        setTable(tableRes.data)
+        try {
+          const config = JSON.parse(ex.hiddenConfig)
+          setHiddenConfig(config)
+        } catch { setHiddenConfig({ hiddenColumns: [], hiddenCells: [] }) }
+      })
+      .catch(() => navigate('/exercises'))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Timer
+  useEffect(() => {
+    if (submitted) { clearInterval(timerRef.current); return }
+    timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000)
+    return () => clearInterval(timerRef.current)
+  }, [submitted])
 
   const handleAnswer = (row, col, value) => {
     if (submitted) return
     setAnswers(prev => ({ ...prev, [`${row}:${col}`]: value }))
+  }
+
+  const requestHint = async (col) => {
+    if (!user) { navigate('/login'); return }
+    setHintLoading(true)
+    try {
+      const r = await api.get(`/exercises/${id}/hint/${encodeURIComponent(col)}`)
+      setHints(prev => ({ ...prev, [col]: r.data.values }))
+      // Update XP in context if available
+      if (updateUser) updateUser(u => ({ ...u, xp: Math.max(0, (u.xp || 0) - 5) }))
+    } catch (e) {
+      alert('No se pudo obtener la pista')
+    } finally { setHintLoading(false) }
   }
 
   const submit = async () => {
@@ -54,21 +82,18 @@ export default function PlayExercise({ darkMode }) {
       const r = await api.post(`/exercises/${id}/attempt`, { answers: answerList, timeSpentSeconds: timeSpent })
       setResult(r.data)
       setSubmitted(true)
-      // Show correct answers
       const correct = {}
       if (table && hiddenConfig) {
         const { hiddenColumns = [], hiddenCells = [] } = hiddenConfig
         hiddenColumns.forEach(col => {
-          table.rows.forEach((row, ri) => {
-            correct[`${ri}:${col}`] = row[col]
-          })
+          table.rows.forEach((row, ri) => { correct[`${ri}:${col}`] = row[col] })
         })
         hiddenCells.forEach(({ row, column }) => {
           correct[`${row}:${column}`] = table.rows[row]?.[column]
         })
       }
       setCorrectAnswers(correct)
-    } catch (err) { alert('Error al enviar respuestas') }
+    } catch { alert('Error al enviar respuestas') }
   }
 
   const totalHidden = hiddenConfig ? (
@@ -92,7 +117,7 @@ export default function PlayExercise({ darkMode }) {
       {/* Header */}
       <div className={card}>
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-xs font-bold px-2 py-1 rounded-full ${DIFF_COLORS[exercise?.difficulty]}`}>{DIFF_LABELS[exercise?.difficulty]}</span>
               <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>por {exercise?.author}</span>
@@ -100,12 +125,31 @@ export default function PlayExercise({ darkMode }) {
             <h1 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{exercise?.title}</h1>
             {exercise?.description && <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{exercise.description}</p>}
           </div>
-          {exercise?.bestScore != null && (
-            <div className={`text-center shrink-0 px-4 py-2 rounded-xl ${exercise.bestScore === 100 ? 'bg-green-100 text-green-700' : (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')}`}>
-              <div className="text-2xl font-black">{exercise.bestScore}%</div>
-              <div className="text-xs">mejor intento</div>
-            </div>
-          )}
+
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Timer */}
+            {!submitted && (
+              <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-mono font-bold text-sm ${
+                elapsed > 300 ? 'bg-red-100 text-red-600' : elapsed > 120 ? 'bg-yellow-100 text-yellow-700' : (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')
+              }`}>
+                ⏱ {formatTime(elapsed)}
+              </div>
+            )}
+
+            {submitted && (
+              <div className={`px-3 py-2 rounded-xl text-xs font-mono text-center ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                ⏱ {formatTime(Math.floor((Date.now() - startTime) / 1000))}
+                <div className="text-xs">tiempo</div>
+              </div>
+            )}
+
+            {exercise?.bestScore != null && (
+              <div className={`text-center px-4 py-2 rounded-xl ${exercise.bestScore === 100 ? 'bg-green-100 text-green-700' : (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')}`}>
+                <div className="text-2xl font-black">{exercise.bestScore}%</div>
+                <div className="text-xs">mejor</div>
+              </div>
+            )}
+          </div>
         </div>
         <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-mono ${darkMode ? 'bg-gray-900 text-violet-300' : 'bg-violet-50 text-violet-800'}`}>
           {exercise?.expression}
@@ -117,7 +161,8 @@ export default function PlayExercise({ darkMode }) {
         <div className={`px-4 py-3 rounded-xl border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
           <p className="text-sm font-medium">
             📝 Completa las celdas marcadas con <strong>?</strong> haciendo clic en el valor correcto (0 o 1).
-            Progreso: {answered}/{totalHidden} celdas completadas.
+            Progreso: <strong>{answered}/{totalHidden}</strong> celdas completadas.
+            {user && <span className="ml-2 text-yellow-600">⚡ {user.xp ?? 0} XP · Pista cuesta 5 XP</span>}
           </p>
         </div>
       )}
@@ -125,19 +170,49 @@ export default function PlayExercise({ darkMode }) {
       {/* Result */}
       {submitted && result && (
         <div className={`px-5 py-4 rounded-2xl border ${
-          result.score === 100
-            ? 'bg-green-50 border-green-200'
-            : result.score >= 70
-            ? 'bg-yellow-50 border-yellow-200'
-            : 'bg-red-50 border-red-200'
+          result.score === 100 ? 'bg-green-50 border-green-200'
+          : result.score >= 70 ? 'bg-yellow-50 border-yellow-200'
+          : 'bg-red-50 border-red-200'
         }`}>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="text-5xl">{result.score === 100 ? '🎉' : result.score >= 70 ? '👍' : '💪'}</div>
-            <div>
+            <div className="flex-1">
               <p className="text-3xl font-black">{result.score}%</p>
               <p className="text-sm">{result.correct}/{result.total} respuestas correctas</p>
               {result.score === 100 && <p className="text-sm font-bold text-green-600 mt-1">¡Perfecto! Completaste el ejercicio.</p>}
             </div>
+            {result.newBadges?.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nuevos logros</p>
+                <div className="flex gap-2 flex-wrap">
+                  {result.newBadges.map(b => (
+                    <div key={b.key} title={b.description} className="flex items-center gap-1 bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full">
+                      <span>{b.icon}</span> {b.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hint column selector */}
+      {!submitted && hiddenConfig?.hiddenColumns?.length > 0 && user && (
+        <div className={`px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+          <p className={`text-xs font-bold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PISTAS (cuesta 5 XP cada una)</p>
+          <div className="flex gap-2 flex-wrap">
+            {hiddenConfig.hiddenColumns.map(col => (
+              <button key={col} disabled={!!hints[col] || hintLoading}
+                onClick={() => requestHint(col)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-mono font-bold border transition ${
+                  hints[col]
+                    ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
+                    : (darkMode ? 'border-yellow-600 text-yellow-400 hover:bg-yellow-900/20' : 'border-yellow-400 text-yellow-700 hover:bg-yellow-50')
+                }`}>
+                {hints[col] ? `✓ ${col}` : `💡 ${col}`}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -160,7 +235,7 @@ export default function PlayExercise({ darkMode }) {
             table={table} hiddenConfig={hiddenConfig}
             answers={answers} onAnswer={handleAnswer}
             submitted={submitted} correctAnswers={correctAnswers}
-            darkMode={darkMode} />
+            hints={hints} darkMode={darkMode} />
         </div>
       )}
 
@@ -180,7 +255,7 @@ export default function PlayExercise({ darkMode }) {
   )
 }
 
-function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, correctAnswers, darkMode }) {
+function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, correctAnswers, hints, darkMode }) {
   const { variables, subExpressions, rows } = table
   const { hiddenColumns = [], hiddenCells = [] } = hiddenConfig
 
@@ -198,7 +273,10 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
           <tr>
             {variables.map(v => <th key={v} className={`${th} ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{v}</th>)}
             {subExpressions.map(s => (
-              <th key={s} className={th}><span className="font-mono text-xs">{s}</span></th>
+              <th key={s} className={`${th} ${isColHidden(s) ? (darkMode ? 'bg-yellow-900/20 text-yellow-300' : 'bg-yellow-50 text-yellow-700') : ''}`}>
+                <span className="font-mono text-xs">{s}</span>
+                {isColHidden(s) && hints[s] && <span className="ml-1 text-green-500">✓</span>}
+              </th>
             ))}
           </tr>
         </thead>
@@ -219,6 +297,7 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                 const ansKey = `${ri}:${s}`
                 const ans = answers[ansKey]
                 const correctVal = correctAnswers[ansKey]
+                const hintVal = hints[s]?.[ri]
 
                 if (!hidden) return (
                   <td key={s} className={td}>
@@ -229,6 +308,17 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                     }`}>{row[s] ? '1' : '0'}</span>
                   </td>
                 )
+
+                // Show hint value if available (col-level hint)
+                if (isColHidden(s) && hintVal !== undefined && !submitted) {
+                  return (
+                    <td key={s} className={td}>
+                      <span className={`px-2 py-0.5 rounded font-bold text-xs font-mono border border-green-400 ${
+                        hintVal ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>{hintVal ? '1' : '0'}</span>
+                    </td>
+                  )
+                }
 
                 if (submitted) {
                   const isCorrect = ans === correctVal

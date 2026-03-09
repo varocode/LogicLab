@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SavedExpression> SavedExpressions => Set<SavedExpression>();
     public DbSet<Exercise> Exercises => Set<Exercise>();
     public DbSet<ExerciseAttempt> ExerciseAttempts => Set<ExerciseAttempt>();
+    public DbSet<UserBadge> UserBadges => Set<UserBadge>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {

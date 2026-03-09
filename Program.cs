@@ -26,6 +26,8 @@ builder.Services.AddScoped<LogicEngine>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ExpressionService>();
 builder.Services.AddScoped<ExerciseService>();
+builder.Services.AddScoped<BadgeService>();
+builder.Services.AddScoped<DailyChallengeService>();
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     p.WithOrigins("http://localhost:5181", "http://localhost:5182", "http://localhost:5173")
      .AllowAnyHeader().AllowAnyMethod()));

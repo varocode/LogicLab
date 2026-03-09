@@ -6,9 +6,12 @@ import Home from './pages/Home'
 import Editor from './pages/Editor'
 import Analysis from './pages/Analysis'
 import KMap from './pages/KMap'
+import ExpressionTree from './pages/ExpressionTree'
 import Exercises from './pages/Exercises'
 import CreateExercise from './pages/CreateExercise'
 import PlayExercise from './pages/PlayExercise'
+import Leaderboard from './pages/Leaderboard'
+import Share from './pages/Share'
 import Reference from './pages/Reference'
 import Profile from './pages/Profile'
 import Login from './pages/Login'
@@ -33,9 +36,12 @@ function AppContent() {
         <Route path="/editor" element={<Editor darkMode={darkMode} />} />
         <Route path="/analysis" element={<Analysis darkMode={darkMode} />} />
         <Route path="/kmap" element={<KMap darkMode={darkMode} />} />
+        <Route path="/tree" element={<ExpressionTree darkMode={darkMode} />} />
         <Route path="/exercises" element={<Exercises darkMode={darkMode} />} />
         <Route path="/exercises/create" element={<CreateExercise darkMode={darkMode} />} />
         <Route path="/exercises/:id" element={<PlayExercise darkMode={darkMode} />} />
+        <Route path="/leaderboard" element={<Leaderboard darkMode={darkMode} />} />
+        <Route path="/share/:shareId" element={<Share darkMode={darkMode} />} />
         <Route path="/reference" element={<Reference darkMode={darkMode} />} />
         <Route path="/profile" element={<Profile darkMode={darkMode} />} />
         <Route path="/login" element={<Login darkMode={darkMode} />} />

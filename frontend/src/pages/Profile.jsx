@@ -4,10 +4,12 @@ import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
 
 export default function Profile({ darkMode }) {
-  const { user, logout, updateUser } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [expressions, setExpressions] = useState([])
   const [myExercises, setMyExercises] = useState([])
+  const [badges, setBadges] = useState([])
+  const [allBadges, setAllBadges] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('history')
 
@@ -15,10 +17,14 @@ export default function Profile({ darkMode }) {
     if (!user) { navigate('/login'); return }
     Promise.all([
       api.get('/expressions/mine'),
-      api.get('/exercises/mine')
-    ]).then(([exRes, excRes]) => {
+      api.get('/exercises/mine'),
+      api.get('/badges/mine'),
+      api.get('/badges/all'),
+    ]).then(([exRes, excRes, badgesRes, allBadgesRes]) => {
       setExpressions(exRes.data)
       setMyExercises(excRes.data)
+      setBadges(badgesRes.data)
+      setAllBadges(allBadgesRes.data)
     }).finally(() => setLoading(false))
   }, [user])
 
@@ -40,6 +46,8 @@ export default function Profile({ darkMode }) {
   const DIFF_LABELS = { easy: 'Fácil', medium: 'Medio', hard: 'Difícil' }
   const CLASS_COLORS = { tautology: 'text-green-600', contradiction: 'text-red-500', contingency: 'text-yellow-600' }
 
+  const earnedKeys = new Set(badges.map(b => b.key))
+
   if (!user) return null
 
   return (
@@ -56,15 +64,16 @@ export default function Profile({ darkMode }) {
           </div>
           <button onClick={() => { logout(); navigate('/') }} className="text-sm text-red-500 hover:text-red-700 transition">Salir</button>
         </div>
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-4 gap-3 mt-4">
           {[
             { label: 'XP', value: user.xp ?? 0, icon: '⚡' },
-            { label: 'Racha', value: `${user.streak ?? 0} días`, icon: '🔥' },
+            { label: 'Racha', value: `${user.streak ?? 0}d`, icon: '🔥' },
             { label: 'Expresiones', value: expressions.length, icon: '📊' },
+            { label: 'Logros', value: `${badges.length}/${allBadges.length}`, icon: '🏅' },
           ].map(stat => (
             <div key={stat.label} className={`rounded-xl p-3 text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
               <div className="text-xl mb-1">{stat.icon}</div>
-              <div className={`text-xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{stat.value}</div>
+              <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{stat.value}</div>
               <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{stat.label}</div>
             </div>
           ))}
@@ -72,8 +81,12 @@ export default function Profile({ darkMode }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {[{ key: 'history', label: '📋 Historial' }, { key: 'exercises', label: '✏️ Mis ejercicios' }].map(t => (
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: 'history', label: '📋 Historial' },
+          { key: 'exercises', label: '✏️ Mis ejercicios' },
+          { key: 'badges', label: `🏅 Logros (${badges.length})` },
+        ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
               tab === t.key ? 'bg-violet-600 text-white' : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
@@ -83,6 +96,31 @@ export default function Profile({ darkMode }) {
 
       {loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      ) : tab === 'badges' ? (
+        <div className={card}>
+          <h2 className={`text-sm font-bold uppercase tracking-wide mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Todos los logros — {badges.length}/{allBadges.length} desbloqueados
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {allBadges.map(b => {
+              const earned = earnedKeys.has(b.key)
+              return (
+                <div key={b.key} className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+                  earned
+                    ? (darkMode ? 'border-yellow-600/40 bg-yellow-900/10' : 'border-yellow-200 bg-yellow-50')
+                    : (darkMode ? 'border-gray-700 opacity-40' : 'border-gray-100 opacity-50')
+                }`}>
+                  <span className={`text-3xl ${earned ? '' : 'grayscale'}`}>{b.icon}</span>
+                  <div>
+                    <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{b.name}</p>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{b.description}</p>
+                    {!earned && <p className={`text-xs font-bold mt-0.5 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`}>Bloqueado</p>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       ) : tab === 'history' ? (
         expressions.length === 0 ? (
           <div className={`text-center py-12 rounded-2xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
