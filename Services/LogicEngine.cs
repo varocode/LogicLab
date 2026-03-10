@@ -14,7 +14,7 @@ public record VarNode(string Name) : ExprNode
 }
 public record NotNode(ExprNode Operand) : ExprNode
 {
-    public override string ToDisplay() => $"¬{(Operand is VarNode ? Operand.ToDisplay() : $"({Operand.ToDisplay()})")}";
+    public override string ToDisplay() => $"¬{Operand.ToDisplay()}";
 }
 public record BinNode(string Op, ExprNode Left, ExprNode Right) : ExprNode
 {
