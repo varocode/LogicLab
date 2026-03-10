@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
@@ -174,7 +174,7 @@ export default function PlayExercise({ darkMode }) {
       {!submitted && (
         <div className={`px-4 py-3 rounded-xl border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
           <p className="text-sm font-medium">
-            📝 Completa las celdas marcadas con <strong>?</strong> haciendo clic en el valor correcto (0 o 1).
+            📝 Completa las celdas marcadas con <strong>?</strong> haciendo clic en el valor correcto.
             Progreso: <strong>{answered}/{totalHidden}</strong> celdas completadas.
             {user && <span className="ml-2 text-yellow-600">⚡ {user.xp ?? 0} XP · Pista cuesta 5 XP</span>}
           </p>
@@ -234,16 +234,19 @@ export default function PlayExercise({ darkMode }) {
       {/* Table */}
       {table && hiddenConfig && (
         <div className={card}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <p className={`text-xs font-bold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Tabla de verdad — completa los espacios en blanco
             </p>
-            {!submitted && answered >= totalHidden && totalHidden > 0 && (
-              <button onClick={submit}
-                className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-700 transition text-sm">
-                Verificar respuestas
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <DisplayToggle darkMode={darkMode} />
+              {!submitted && answered >= totalHidden && totalHidden > 0 && (
+                <button onClick={submit}
+                  className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-700 transition text-sm">
+                  Verificar respuestas
+                </button>
+              )}
+            </div>
           </div>
           <ExerciseTable
             table={table} hiddenConfig={hiddenConfig}
@@ -269,7 +272,36 @@ export default function PlayExercise({ darkMode }) {
   )
 }
 
+const fmtVal = (v, mode) => mode === 'vf' ? (v ? 'V' : 'F') : (v ? '1' : '0')
+
+function useDisplayMode() {
+  const [mode, setMode] = useState(() => {
+    try { return localStorage.getItem('tt_display_mode') || 'binary' } catch { return 'binary' }
+  })
+  const change = (m) => { setMode(m); try { localStorage.setItem('tt_display_mode', m) } catch {} }
+  return [mode, change]
+}
+
+function DisplayToggle({ darkMode }) {
+  const [mode, change] = useDisplayMode()
+  return (
+    <div className={`inline-flex rounded-lg border text-xs font-bold overflow-hidden ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+      {['binary', 'vf'].map(m => (
+        <button key={m} onClick={() => change(m)}
+          className={`px-2.5 py-1 transition ${
+            mode === m
+              ? 'bg-violet-600 text-white'
+              : (darkMode ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-white text-gray-500 hover:bg-gray-50')
+          }`}>
+          {m === 'binary' ? '1/0' : 'V/F'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, correctAnswers, hints, darkMode }) {
+  const [mode] = useDisplayMode()
   const { variables, subExpressions, rows } = table
   const { hiddenColumns = [], hiddenCells = [] } = hiddenConfig
 
@@ -303,7 +335,7 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                     row[v]
                       ? (darkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700')
                       : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500')
-                  }`}>{row[v] ? '1' : '0'}</span>
+                  }`}>{fmtVal(row[v], mode)}</span>
                 </td>
               ))}
               {subExpressions.map(s => {
@@ -319,7 +351,7 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                       row[s]
                         ? (darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700')
                         : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500')
-                    }`}>{row[s] ? '1' : '0'}</span>
+                    }`}>{fmtVal(row[s], mode)}</span>
                   </td>
                 )
 
@@ -329,7 +361,7 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                     <td key={s} className={td}>
                       <span className={`px-2 py-0.5 rounded font-bold text-xs font-mono border border-green-400 ${
                         hintVal ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}>{hintVal ? '1' : '0'}</span>
+                      }`}>{fmtVal(hintVal, mode)}</span>
                     </td>
                   )
                 }
@@ -343,9 +375,9 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                           ans === undefined ? 'border-gray-300 text-gray-400'
                           : isCorrect ? 'border-green-400 bg-green-100 text-green-700'
                           : 'border-red-400 bg-red-100 text-red-700'
-                        }`}>{ans === undefined ? '—' : ans ? '1' : '0'}</span>
+                        }`}>{ans === undefined ? '—' : fmtVal(ans, mode)}</span>
                         {!isCorrect && correctVal !== undefined && (
-                          <span className="text-xs text-green-600 font-bold">{correctVal ? '1' : '0'}</span>
+                          <span className="text-xs text-green-600 font-bold">{fmtVal(correctVal, mode)}</span>
                         )}
                       </div>
                     </td>
@@ -362,7 +394,7 @@ function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, corr
                             ans === v
                               ? (v ? 'bg-green-500 text-white shadow-sm' : 'bg-red-500 text-white shadow-sm')
                               : (darkMode ? 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200')
-                          }`}>{v ? '1' : '0'}</button>
+                          }`}>{fmtVal(v, mode)}</button>
                       ))}
                     </div>
                   </td>
