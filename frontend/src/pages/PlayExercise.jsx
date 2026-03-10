@@ -28,6 +28,9 @@ export default function PlayExercise({ darkMode }) {
   const [correctAnswers, setCorrectAnswers] = useState({})
   const [hints, setHints] = useState({}) // { col: [bool, ...] }
   const [hintLoading, setHintLoading] = useState(false)
+  const [displayMode, setDisplayMode] = useState(() => {
+    try { return localStorage.getItem('tt_display_mode') || 'binary' } catch { return 'binary' }
+  })
   const timerRef = useRef(null)
 
   useEffect(() => {
@@ -239,7 +242,7 @@ export default function PlayExercise({ darkMode }) {
               Tabla de verdad — completa los espacios en blanco
             </p>
             <div className="flex items-center gap-2">
-              <DisplayToggle darkMode={darkMode} />
+              <DisplayToggle mode={displayMode} onChange={(m) => { setDisplayMode(m); try { localStorage.setItem('tt_display_mode', m) } catch {} }} darkMode={darkMode} />
               {!submitted && answered >= totalHidden && totalHidden > 0 && (
                 <button onClick={submit}
                   className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-700 transition text-sm">
@@ -252,7 +255,7 @@ export default function PlayExercise({ darkMode }) {
             table={table} hiddenConfig={hiddenConfig}
             answers={answers} onAnswer={handleAnswer}
             submitted={submitted} correctAnswers={correctAnswers}
-            hints={hints} darkMode={darkMode} />
+            hints={hints} displayMode={displayMode} darkMode={darkMode} />
         </div>
       )}
 
@@ -274,20 +277,11 @@ export default function PlayExercise({ darkMode }) {
 
 const fmtVal = (v, mode) => mode === 'vf' ? (v ? 'V' : 'F') : (v ? '1' : '0')
 
-function useDisplayMode() {
-  const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem('tt_display_mode') || 'binary' } catch { return 'binary' }
-  })
-  const change = (m) => { setMode(m); try { localStorage.setItem('tt_display_mode', m) } catch {} }
-  return [mode, change]
-}
-
-function DisplayToggle({ darkMode }) {
-  const [mode, change] = useDisplayMode()
+function DisplayToggle({ mode, onChange, darkMode }) {
   return (
     <div className={`inline-flex rounded-lg border text-xs font-bold overflow-hidden ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
       {['binary', 'vf'].map(m => (
-        <button key={m} onClick={() => change(m)}
+        <button key={m} onClick={() => onChange(m)}
           className={`px-2.5 py-1 transition ${
             mode === m
               ? 'bg-violet-600 text-white'
@@ -300,8 +294,8 @@ function DisplayToggle({ darkMode }) {
   )
 }
 
-function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, correctAnswers, hints, darkMode }) {
-  const [mode] = useDisplayMode()
+function ExerciseTable({ table, hiddenConfig, answers, onAnswer, submitted, correctAnswers, hints, displayMode, darkMode }) {
+  const mode = displayMode
   const { variables, subExpressions, rows } = table
   const { hiddenColumns = [], hiddenCells = [] } = hiddenConfig
 
