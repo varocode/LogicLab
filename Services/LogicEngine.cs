@@ -60,7 +60,7 @@ public class LogicEngine
         var rows = new List<Dictionary<string, bool>>();
         int n = vars.Count;
 
-        for (int i = 0; i < (1 << n); i++)
+        for (int i = (1 << n) - 1; i >= 0; i--)
         {
             var assignment = new Dictionary<string, bool>();
             for (int j = 0; j < n; j++)
