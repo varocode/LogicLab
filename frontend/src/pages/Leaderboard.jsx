@@ -76,7 +76,7 @@ export default function Leaderboard({ darkMode }) {
             {entries.map(entry => (
               <div key={entry.userId}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl transition cursor-pointer ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
-                onClick={() => navigate(`/badges/user/${entry.userId}`)}>
+                onClick={() => {}}>
                 {/* Rank */}
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${rankBg(entry.rank)}`}>
                   {entry.rank <= 3 ? ['🥇','🥈','🥉'][entry.rank - 1] : entry.rank}

@@ -58,15 +58,21 @@ export default function PlayExercise({ darkMode }) {
     setAnswers(prev => ({ ...prev, [`${row}:${col}`]: value }))
   }
 
+  const refreshUser = async () => {
+    try {
+      const r = await api.get('/users/me')
+      updateUser({ xp: r.data.xp, streak: r.data.streak })
+    } catch {}
+  }
+
   const requestHint = async (col) => {
     if (!user) { navigate('/login'); return }
     setHintLoading(true)
     try {
       const r = await api.get(`/exercises/${id}/hint/${encodeURIComponent(col)}`)
       setHints(prev => ({ ...prev, [col]: r.data.values }))
-      // Update XP in context if available
-      if (updateUser) updateUser(u => ({ ...u, xp: Math.max(0, (u.xp || 0) - 5) }))
-    } catch (e) {
+      await refreshUser()
+    } catch {
       alert('No se pudo obtener la pista')
     } finally { setHintLoading(false) }
   }
@@ -82,6 +88,7 @@ export default function PlayExercise({ darkMode }) {
       const r = await api.post(`/exercises/${id}/attempt`, { answers: answerList, timeSpentSeconds: timeSpent })
       setResult(r.data)
       setSubmitted(true)
+      await refreshUser()
       const correct = {}
       if (table && hiddenConfig) {
         const { hiddenColumns = [], hiddenCells = [] } = hiddenConfig
