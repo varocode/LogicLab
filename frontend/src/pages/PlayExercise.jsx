@@ -70,7 +70,14 @@ export default function PlayExercise({ darkMode }) {
     setHintLoading(true)
     try {
       const r = await api.get(`/exercises/${id}/hint/${encodeURIComponent(col)}`)
-      setHints(prev => ({ ...prev, [col]: r.data.values }))
+      const values = r.data.values
+      setHints(prev => ({ ...prev, [col]: values }))
+      // Auto-fill answers for hinted column so they count toward progress
+      setAnswers(prev => {
+        const updated = { ...prev }
+        values.forEach((val, ri) => { updated[`${ri}:${col}`] = val })
+        return updated
+      })
       await refreshUser()
     } catch {
       alert('No se pudo obtener la pista')
